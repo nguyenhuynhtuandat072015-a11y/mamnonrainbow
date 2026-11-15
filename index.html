@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mầm Non Rainbow - Hệ Thống Quản Lý Toàn Diện</title>
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts: Plus Jakarta Sans -->
@@ -153,6 +153,9 @@
             </div>
             <div onclick="switchTab('teacher-attendance')" id="nav-teacher-attendance" class="menu-item flex items-center gap-3 px-4 py-2.5 rounded-2xl cursor-pointer transition-all duration-200 text-sm font-medium hover:bg-white/10 text-white/80 hover:text-white">
                 <span class="text-base">📋</span> <span>Điểm danh tháng · Giáo viên</span>
+            </div>
+            <div onclick="switchTab('payroll')" id="nav-payroll" class="menu-item flex items-center gap-3 px-4 py-2.5 rounded-2xl cursor-pointer transition-all duration-200 text-sm font-medium hover:bg-white/10 text-white/80 hover:text-white">
+                <span class="text-base">💵</span> <span>Bảng lương</span>
             </div>
         </div>
 
@@ -500,6 +503,66 @@
                 </div>
             </div>
 
+                    <!-- ================= VIEW 9: PAYROLL (Admin Only) ================= -->
+            <div id="view-payroll" class="tab-view hidden space-y-6">
+                <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+                    <div class="flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-800">Bảng lương giáo viên & nhân viên theo tháng</h3>
+                            <p class="text-xs text-slate-500 font-medium mt-0.5">Tự tính từ lương cơ bản, ngày nghỉ trong bảng chấm công và tiền đã ứng; thêm phụ cấp, thưởng, khấu trừ cho từng người</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <select id="filterPayrollRole" onchange="renderPayroll()" class="py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:outline-none">
+                                <option value="">Tất cả chức vụ</option>
+                            </select>
+                            <div class="flex items-center bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+                                <button onclick="shiftPayMonth(-1)" class="px-3.5 py-2.5 hover:bg-purple-50 text-slate-600" title="Tháng trước"><i class="fa-solid fa-chevron-left"></i></button>
+                                <input type="month" id="payMonthInput" onchange="setPayMonth(this.value)" class="bg-transparent py-2 text-xs font-extrabold text-slate-700 focus:outline-none text-center">
+                                <button onclick="shiftPayMonth(1)" class="px-3.5 py-2.5 hover:bg-purple-50 text-slate-600" title="Tháng sau"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                            <button onclick="setPayMonth(ymNow())" class="px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100 rounded-2xl text-xs font-bold">Tháng này</button>
+                            <button onclick="exportPayrollCsv()" class="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-2xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-file-csv"></i> Xuất Excel</button>
+                            <button onclick="markAllPayPaid()" class="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold shadow-md flex items-center gap-1.5"><i class="fa-solid fa-check-double"></i> Chi lương cả danh sách</button>
+                        </div>
+                    </div>
+
+                    <div id="paySummary" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+
+                    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-600">
+                        <label class="flex items-center gap-2">Số ngày công chuẩn / tháng
+                            <input type="number" id="payStdDays" min="1" max="31" onchange="setPayStd(this.value)" class="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-extrabold text-center focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="payDeductP" onchange="setPayDeductP(this.checked)" class="w-4 h-4 accent-purple-600">
+                            Trừ cả ngày nghỉ có phép (P)
+                        </label>
+                        <span class="text-slate-400 font-medium sm:ml-auto">Trừ vắng = lương cơ bản ÷ ngày công chuẩn × số ngày vắng (K). Ngày chưa điểm danh được tính là đi làm.</span>
+                    </div>
+
+                    <div class="overflow-auto max-h-[62vh] rounded-2xl border border-slate-200 shadow-xs custom-scrollbar-light">
+                        <table class="border-separate border-spacing-0 text-sm min-w-full">
+                            <thead class="sticky top-0 z-20 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                                <tr>
+                                    <th class="p-3 pl-5 text-left border-b border-slate-200 whitespace-nowrap">Nhân sự</th>
+                                    <th class="p-3 text-right border-b border-slate-200 whitespace-nowrap">Lương cơ bản</th>
+                                    <th class="p-3 text-center border-b border-slate-200 whitespace-nowrap">Chấm công</th>
+                                    <th class="p-3 text-right border-b border-slate-200 whitespace-nowrap">Phụ cấp</th>
+                                    <th class="p-3 text-right border-b border-slate-200 whitespace-nowrap">Thưởng</th>
+                                    <th class="p-3 text-right border-b border-slate-200 whitespace-nowrap">Trừ vắng</th>
+                                    <th class="p-3 text-right border-b border-slate-200 whitespace-nowrap">Khấu trừ khác</th>
+                                    <th class="p-3 text-right border-b border-slate-200 whitespace-nowrap">Đã ứng</th>
+                                    <th class="p-3 text-right border-b border-slate-200 whitespace-nowrap">Thực lĩnh</th>
+                                    <th class="p-3 text-center border-b border-slate-200 whitespace-nowrap">Trạng thái</th>
+                                    <th class="p-3 pr-5 text-center border-b border-slate-200 whitespace-nowrap">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payBody" class="divide-y divide-slate-100"></tbody>
+                            <tfoot id="payFoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -642,6 +705,65 @@
                     <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold shadow-md">Xác nhận ứng</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Payroll Edit Modal -->
+    <div id="payModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-7 max-w-md w-full shadow-2xl modal-animate space-y-5 max-h-[92vh] overflow-y-auto">
+            <div>
+                <h3 class="text-lg font-extrabold text-slate-900">Điều chỉnh lương tháng <span id="payModalMonth"></span></h3>
+                <p id="payModalWho" class="text-xs font-bold text-purple-700 mt-0.5"></p>
+            </div>
+            <form onsubmit="handlePaySubmit(event)" class="space-y-4">
+                <input type="hidden" id="payStaffId">
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3"><div class="text-slate-500 font-semibold">Lương cơ bản</div><div id="payInfoBase" class="font-extrabold text-slate-800 mt-0.5"></div></div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3"><div class="text-slate-500 font-semibold">Trừ vắng (tự tính)</div><div id="payInfoAbs" class="font-extrabold text-rose-600 mt-0.5"></div><div id="payInfoAbsDays" class="text-[10px] text-slate-400 font-semibold"></div></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Phụ cấp (đ)</label>
+                        <input type="number" min="0" id="payAllowance" oninput="updatePayPreview()" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Thưởng (đ)</label>
+                        <input type="number" min="0" id="payBonus" oninput="updatePayPreview()" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Khấu trừ khác (đ)</label>
+                        <input type="number" min="0" id="payOther" oninput="updatePayPreview()" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Đã ứng (đ)</label>
+                        <input type="number" min="0" id="payAdvance" oninput="updatePayPreview()" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Ghi chú</label>
+                        <input type="text" id="payNote" placeholder="Ví dụ: Thưởng lễ, đóng BHXH..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center bg-purple-50 border border-purple-100 rounded-2xl px-4 py-3">
+                    <span class="text-xs font-bold text-purple-800 uppercase">Thực lĩnh</span>
+                    <span id="payPreviewNet" class="text-lg font-extrabold text-purple-800"></span>
+                </div>
+                <div class="flex justify-end gap-3 pt-1">
+                    <button type="button" onclick="closeModal('payModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold">Hủy</button>
+                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold shadow-md">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payslip Modal -->
+    <div id="payslipModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-7 max-w-md w-full shadow-2xl modal-animate space-y-5 max-h-[92vh] overflow-y-auto">
+            <div id="payslipBody"></div>
+            <div class="flex justify-end gap-2 pt-1">
+                <button type="button" onclick="closeModal('payslipModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold">Đóng</button>
+                <button type="button" onclick="copyPayslip()" class="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-100 rounded-xl text-xs font-bold"><i class="fa-solid fa-copy mr-1"></i> Sao chép</button>
+                <button type="button" onclick="printPayslip()" class="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold shadow-md"><i class="fa-solid fa-print mr-1"></i> In phiếu</button>
+            </div>
         </div>
     </div>
 
@@ -799,6 +921,7 @@
                 s.debtFee = s.tuitionPaid ? 0 : Math.max(total, 0);
                 s.tuitionPaid = false;
             });
+            snapshotPayroll(last);
             saveData();
             localStorage.setItem('rainbow_lastMonth', now);
             setTimeout(() => { try { showToast('📅 Sang tháng mới: tất cả đã về "Chưa thanh toán", khoản chưa đóng được cộng vào nợ.', '📅'); } catch (e) {} }, 500);
@@ -947,6 +1070,7 @@
             const navTeacherAttendance = document.getElementById('nav-teacher-attendance');
             const catFinance = document.getElementById('cat-finance');
             const catStaff = document.getElementById('cat-staff');
+            const navPayroll = document.getElementById('nav-payroll');
 
             if (role === 'teacher') {
                 if (navDashboard) navDashboard.style.display = 'flex';
@@ -957,6 +1081,7 @@
                 if (navFinance) navFinance.style.display = 'none';
                 if (navStaff) navStaff.style.display = 'none';
                 if (navTeacherAttendance) navTeacherAttendance.style.display = 'none';
+                if (navPayroll) navPayroll.style.display = 'none';
                 if (catFinance) catFinance.style.display = 'none';
                 if (catStaff) catStaff.style.display = 'none';
             } else {
@@ -968,6 +1093,7 @@
                 if (navFinance) navFinance.style.display = 'flex';
                 if (navStaff) navStaff.style.display = 'flex';
                 if (navTeacherAttendance) navTeacherAttendance.style.display = 'flex';
+                if (navPayroll) navPayroll.style.display = 'flex';
                 if (catFinance) catFinance.style.display = 'block';
                 if (catStaff) catStaff.style.display = 'block';
             }
@@ -998,7 +1124,7 @@
 
         window.switchTab = function(tabId) {
             const role = sessionStorage.getItem('currentRole') || 'admin';
-            if (role === 'teacher' && (tabId === 'finance' || tabId === 'staff' || tabId === 'teacher-attendance')) {
+            if (role === 'teacher' && (tabId === 'finance' || tabId === 'staff' || tabId === 'teacher-attendance' || tabId === 'payroll')) {
                 showToast('⚠️ Tài khoản Giáo viên không có quyền truy cập mục này!', '⚠️');
                 return;
             }
@@ -1051,6 +1177,10 @@
                 document.getElementById('view-teacher-attendance').classList.remove('hidden');
                 document.getElementById('pageTitle').innerText = 'Bảng chấm công giáo viên & nhân sự';
                 renderTeacherAttendanceList();
+            } else if (tabId === 'payroll') {
+                document.getElementById('view-payroll').classList.remove('hidden');
+                document.getElementById('pageTitle').innerText = 'Bảng lương giáo viên & nhân sự';
+                renderPayroll();
             }
 
             if (window.innerWidth < 768) {
@@ -1982,6 +2112,273 @@
                 renderStaffGrid();
                 updateDashboardStats();
             }
+        };
+
+        // ================= BẢNG LƯƠNG =================
+        let payroll = (function () { try { return JSON.parse(localStorage.getItem('rainbow_payroll')) || {}; } catch (e) { return {}; } })();
+        let payMonth = ymNow();
+        let payslipCtx = null;
+
+        function savePayroll() { localStorage.setItem('rainbow_payroll', JSON.stringify(payroll)); }
+        function payStd() { const v = parseInt(localStorage.getItem('rainbow_payStdDays')); return v > 0 ? v : 26; }
+        function payDeductP() { return localStorage.getItem('rainbow_payDeductP') === '1'; }
+        function payEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function payLabel(ym) { return ym.split('-').reverse().join('/'); }
+        function payRec(ym, id) { return ((payroll[ym] || {})[id]) || {}; }
+        function payRecW(ym, id) {
+            if (!payroll[ym]) payroll[ym] = {};
+            if (!payroll[ym][id]) payroll[ym][id] = {};
+            return payroll[ym][id];
+        }
+
+        // Tính lương 1 người trong 1 tháng
+        function payCalc(st, ym) {
+            const rec = payRec(ym, st.id);
+            const cur = ym === ymNow();
+            const base = (!cur && rec.base != null) ? rec.base : (st.salary || 0);
+            const att = ((attData.staff[ym] || {})[st.id]) || {};
+            let c = 0, p = 0, k = 0;
+            Object.keys(att).forEach(d => { if (att[d] === 'C') c++; else if (att[d] === 'P') p++; else if (att[d] === 'K') k++; });
+            const std = payStd();
+            const absDays = Math.min(std, k + (payDeductP() ? p : 0));
+            const absCut = Math.round(base / std * absDays);
+            const allowance = rec.allowance || 0, bonus = rec.bonus || 0, other = rec.other || 0;
+            const advance = cur ? (st.advanceAmount || 0) : (rec.advance || 0);
+            const paid = cur ? !!st.salaryPaid : !!rec.paid;
+            const gross = base + allowance + bonus;
+            const net = Math.max(0, gross - absCut - other - advance);
+            return { base, c, p, k, absDays, absCut, allowance, bonus, other, advance, paid, gross, net, note: rec.note || '' };
+        }
+
+        // Sang tháng mới: lưu lại bảng lương tháng trước rồi đặt lại ứng lương / trạng thái trả lương
+        function snapshotPayroll(ym) {
+            staffList.forEach(st => {
+                const r = payRecW(ym, st.id);
+                if (r.base == null) r.base = st.salary || 0;
+                r.advance = st.advanceAmount || 0;
+                r.paid = !!st.salaryPaid;
+                st.advanceAmount = 0;
+                st.salaryPaid = false;
+            });
+            savePayroll();
+        }
+
+        function payList() {
+            const role = document.getElementById('filterPayrollRole').value;
+            return role ? staffList.filter(s => s.role === role) : staffList;
+        }
+
+        window.setPayMonth = function (ym) { if (!ym) return; payMonth = ym; renderPayroll(); };
+        window.shiftPayMonth = function (delta) {
+            const [y, m] = payMonth.split('-').map(Number);
+            const d = new Date(y, m - 1 + delta, 1);
+            setPayMonth(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+        };
+        window.setPayStd = function (v) {
+            const n = parseInt(v);
+            localStorage.setItem('rainbow_payStdDays', n > 0 && n <= 31 ? n : 26);
+            renderPayroll();
+        };
+        window.setPayDeductP = function (on) { localStorage.setItem('rainbow_payDeductP', on ? '1' : '0'); renderPayroll(); };
+
+        window.renderPayroll = function () {
+            const ym = payMonth;
+            const mi = document.getElementById('payMonthInput'); if (mi) mi.value = ym;
+            const si = document.getElementById('payStdDays'); if (si && document.activeElement !== si) si.value = payStd();
+            document.getElementById('payDeductP').checked = payDeductP();
+
+            const sel = document.getElementById('filterPayrollRole');
+            const curRole = sel.value;
+            const roles = [...new Set(staffList.map(s => s.role))];
+            sel.innerHTML = '<option value="">Tất cả chức vụ</option>' + roles.map(r => `<option value="${payEsc(r)}">${payEsc(r)}</option>`).join('');
+            sel.value = roles.includes(curRole) ? curRole : '';
+
+            const rows = payList().map(st => ({ st, c: payCalc(st, ym) }));
+            const sum = k => rows.reduce((a, r) => a + r.c[k], 0);
+            const totalNet = sum('net');
+            const paidNet = rows.filter(r => r.c.paid).reduce((a, r) => a + r.c.net, 0);
+            const cut = sum('absCut') + sum('other') + sum('advance');
+            const card = (label, val, cls, sub) => `<div class="rounded-2xl border p-4 ${cls}"><div class="text-[11px] font-extrabold uppercase tracking-wider opacity-70">${label}</div><div class="text-xl font-extrabold mt-1">${fmtMoney(val)}</div><div class="text-[11px] font-semibold opacity-70 mt-0.5">${sub}</div></div>`;
+            document.getElementById('paySummary').innerHTML =
+                card('Tổng lương cơ bản', sum('base'), 'bg-slate-50 border-slate-200 text-slate-800', rows.length + ' nhân sự') +
+                card('Tổng thực lĩnh', totalNet, 'bg-purple-50 border-purple-100 text-purple-800', 'Sau trừ ứng & khấu trừ') +
+                card('Đã chi', paidNet, 'bg-emerald-50 border-emerald-200 text-emerald-700', rows.filter(r => r.c.paid).length + '/' + rows.length + ' người') +
+                card('Còn phải chi', totalNet - paidNet, 'bg-amber-50 border-amber-200 text-amber-700', 'Đã trừ ' + fmtMoney(cut));
+
+            const money = (v, neg) => v ? `<span class="${neg ? 'text-rose-600' : 'text-slate-700'} font-semibold">${neg ? '-' : ''}${fmtMoney(v)}</span>` : '<span class="text-slate-300">—</span>';
+            document.getElementById('payBody').innerHTML = rows.length === 0
+                ? '<tr><td colspan="11" class="p-10 text-center text-slate-400 font-semibold">Chưa có nhân sự nào</td></tr>'
+                : rows.map(({ st, c }) => `
+                    <tr class="hover:bg-purple-50/40 transition-colors text-xs">
+                        <td class="p-3 pl-5 whitespace-nowrap"><div class="font-extrabold text-slate-800 text-sm">${payEsc(st.name)}</div><div class="text-[11px] text-purple-700 font-bold">${payEsc(st.role)}</div>${c.note ? `<div class="text-[10px] text-slate-400 font-medium max-w-[180px] truncate" title="${payEsc(c.note)}">📝 ${payEsc(c.note)}</div>` : ''}</td>
+                        <td class="p-3 text-right font-bold text-slate-800 whitespace-nowrap">${fmtMoney(c.base)}</td>
+                        <td class="p-3 text-center whitespace-nowrap"><span class="inline-block px-1.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">${c.c}</span> <span class="inline-block px-1.5 py-0.5 rounded-lg bg-amber-50 text-amber-700 font-bold border border-amber-200">${c.p}P</span> <span class="inline-block px-1.5 py-0.5 rounded-lg bg-rose-50 text-rose-700 font-bold border border-rose-200">${c.k}K</span></td>
+                        <td class="p-3 text-right whitespace-nowrap">${money(c.allowance)}</td>
+                        <td class="p-3 text-right whitespace-nowrap">${money(c.bonus)}</td>
+                        <td class="p-3 text-right whitespace-nowrap">${money(c.absCut, true)}</td>
+                        <td class="p-3 text-right whitespace-nowrap">${money(c.other, true)}</td>
+                        <td class="p-3 text-right whitespace-nowrap">${money(c.advance, true)}</td>
+                        <td class="p-3 text-right font-extrabold text-purple-800 text-sm whitespace-nowrap">${fmtMoney(c.net)}</td>
+                        <td class="p-3 text-center"><button onclick="togglePayPaid('${st.id}')" class="px-3 py-1 rounded-full text-[11px] font-extrabold border shadow-xs whitespace-nowrap ${c.paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}">${c.paid ? 'Đã chi ✓' : 'Chưa chi ✗'}</button></td>
+                        <td class="p-3 pr-5 text-center whitespace-nowrap">
+                            <button onclick="openPayModal('${st.id}')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-[11px] font-bold" title="Điều chỉnh"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="openPayslip('${st.id}')" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 rounded-xl text-[11px] font-bold" title="Phiếu lương"><i class="fa-solid fa-receipt"></i></button>
+                        </td>
+                    </tr>`).join('');
+
+            document.getElementById('payFoot').innerHTML = rows.length === 0 ? '' : `
+                <tr class="bg-purple-50 text-xs font-extrabold text-slate-800">
+                    <td class="p-3 pl-5">TỔNG (${rows.length})</td>
+                    <td class="p-3 text-right whitespace-nowrap">${fmtMoney(sum('base'))}</td>
+                    <td class="p-3"></td>
+                    <td class="p-3 text-right whitespace-nowrap">${fmtMoney(sum('allowance'))}</td>
+                    <td class="p-3 text-right whitespace-nowrap">${fmtMoney(sum('bonus'))}</td>
+                    <td class="p-3 text-right text-rose-600 whitespace-nowrap">-${fmtMoney(sum('absCut'))}</td>
+                    <td class="p-3 text-right text-rose-600 whitespace-nowrap">-${fmtMoney(sum('other'))}</td>
+                    <td class="p-3 text-right text-rose-600 whitespace-nowrap">-${fmtMoney(sum('advance'))}</td>
+                    <td class="p-3 text-right text-purple-800 text-sm whitespace-nowrap">${fmtMoney(totalNet)}</td>
+                    <td class="p-3"></td><td class="p-3 pr-5"></td>
+                </tr>`;
+        };
+
+        window.togglePayPaid = function (id) {
+            const st = staffList.find(s => String(s.id) === String(id));
+            if (!st) return;
+            setPaid(st, !payCalc(st, payMonth).paid);
+            saveData(); savePayroll();
+            renderPayroll();
+        };
+        function setPaid(st, val) {
+            if (payMonth === ymNow()) st.salaryPaid = val;
+            else { const r = payRecW(payMonth, st.id); r.paid = val; if (r.base == null) r.base = payCalc(st, payMonth).base; }
+        }
+        window.markAllPayPaid = async function () {
+            const list = payList().filter(st => !payCalc(st, payMonth).paid);
+            if (list.length === 0) { showToast('Tất cả đã được chi lương tháng này.', 'ℹ️'); return; }
+            const total = list.reduce((a, st) => a + payCalc(st, payMonth).net, 0);
+            if (await askConfirm(`Đánh dấu đã chi lương tháng ${payLabel(payMonth)} cho ${list.length} người (tổng ${fmtMoney(total)})?`, 'Chi lương')) {
+                list.forEach(st => setPaid(st, true));
+                saveData(); savePayroll();
+                renderPayroll();
+                showToast('💰 Đã đánh dấu chi lương cho ' + list.length + ' người.');
+            }
+        };
+
+        window.openPayModal = function (id) {
+            const st = staffList.find(s => String(s.id) === String(id));
+            if (!st) return;
+            const c = payCalc(st, payMonth);
+            document.getElementById('payStaffId').value = st.id;
+            document.getElementById('payModalMonth').innerText = payLabel(payMonth);
+            document.getElementById('payModalWho').innerText = st.name + ' · ' + st.role;
+            document.getElementById('payInfoBase').innerText = fmtMoney(c.base);
+            document.getElementById('payInfoAbs').innerText = '-' + fmtMoney(c.absCut);
+            document.getElementById('payInfoAbsDays').innerText = c.absDays + ' ngày bị trừ · công chuẩn ' + payStd() + ' ngày';
+            document.getElementById('payAllowance').value = c.allowance || '';
+            document.getElementById('payBonus').value = c.bonus || '';
+            document.getElementById('payOther').value = c.other || '';
+            document.getElementById('payAdvance').value = c.advance || '';
+            document.getElementById('payNote').value = c.note || '';
+            document.getElementById('payModal')._calc = c;
+            updatePayPreview();
+            document.getElementById('payModal').classList.remove('hidden');
+        };
+        window.updatePayPreview = function () {
+            const c = document.getElementById('payModal')._calc; if (!c) return;
+            const v = id => Math.max(0, parseFloat(document.getElementById(id).value) || 0);
+            const net = Math.max(0, c.base + v('payAllowance') + v('payBonus') - c.absCut - v('payOther') - v('payAdvance'));
+            document.getElementById('payPreviewNet').innerText = fmtMoney(net);
+        };
+        window.handlePaySubmit = function (e) {
+            e.preventDefault();
+            const id = document.getElementById('payStaffId').value;
+            const st = staffList.find(s => String(s.id) === String(id));
+            if (!st) return;
+            const v = k => Math.max(0, parseFloat(document.getElementById(k).value) || 0);
+            const r = payRecW(payMonth, st.id);
+            if (r.base == null) r.base = payCalc(st, payMonth).base;
+            r.allowance = v('payAllowance'); r.bonus = v('payBonus'); r.other = v('payOther');
+            r.note = document.getElementById('payNote').value.trim();
+            if (payMonth === ymNow()) st.advanceAmount = v('payAdvance'); else r.advance = v('payAdvance');
+            saveData(); savePayroll();
+            closeModal('payModal');
+            renderPayroll();
+            showToast('✨ Đã cập nhật lương của ' + st.name + '.');
+        };
+
+        // ----- Phiếu lương -----
+        function payslipHtml(st, ym, c) {
+            const row = (l, v, color, bold) => `<tr><td style="padding:6px 0;color:#475569;${bold ? 'font-weight:800;' : ''}">${l}</td><td style="padding:6px 0;text-align:right;color:${color || '#0f172a'};font-weight:${bold ? 800 : 600};">${v}</td></tr>`;
+            return `
+                <div style="text-align:center;margin-bottom:14px">
+                    <div style="font-size:12px;font-weight:800;color:#7c3aed;letter-spacing:.08em">TRƯỜNG MẦM NON RAINBOW</div>
+                    <div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">PHIẾU LƯƠNG THÁNG ${payLabel(ym)}</div>
+                </div>
+                <div style="font-size:13px;margin-bottom:10px"><b>${payEsc(st.name)}</b> · ${payEsc(st.role)}${st.assignedClass ? ' · ' + payEsc(st.assignedClass) : ''}</div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px">
+                    ${row('Lương cơ bản', fmtMoney(c.base))}
+                    ${row('Phụ cấp', fmtMoney(c.allowance))}
+                    ${row('Thưởng', fmtMoney(c.bonus))}
+                    <tr><td colspan="2" style="border-top:1px dashed #cbd5e1"></td></tr>
+                    ${row(`Trừ ngày vắng (${c.absDays} ngày)`, '-' + fmtMoney(c.absCut), '#e11d48')}
+                    ${row('Khấu trừ khác', '-' + fmtMoney(c.other), '#e11d48')}
+                    ${row('Đã ứng lương', '-' + fmtMoney(c.advance), '#e11d48')}
+                    <tr><td colspan="2" style="border-top:2px solid #7c3aed"></td></tr>
+                    ${row('THỰC LĨNH', fmtMoney(c.net), '#6d28d9', true)}
+                </table>
+                <div style="font-size:11px;color:#64748b;margin-top:10px">Công: ${c.c} ngày có mặt · ${c.p} nghỉ có phép · ${c.k} nghỉ không phép${c.note ? '<br>Ghi chú: ' + payEsc(c.note) : ''}<br>Trạng thái: <b>${c.paid ? 'Đã chi' : 'Chưa chi'}</b></div>`;
+        }
+        function payslipText(st, ym, c) {
+            return [
+                `PHIẾU LƯƠNG THÁNG ${payLabel(ym)} - Mầm Non Rainbow`,
+                `${st.name} (${st.role})`,
+                `Lương cơ bản: ${fmtMoney(c.base)}`,
+                `Phụ cấp: ${fmtMoney(c.allowance)}`,
+                `Thưởng: ${fmtMoney(c.bonus)}`,
+                `Trừ ngày vắng (${c.absDays} ngày): -${fmtMoney(c.absCut)}`,
+                `Khấu trừ khác: -${fmtMoney(c.other)}`,
+                `Đã ứng: -${fmtMoney(c.advance)}`,
+                `THỰC LĨNH: ${fmtMoney(c.net)}`,
+                c.note ? `Ghi chú: ${c.note}` : ''
+            ].filter(Boolean).join('\n');
+        }
+        window.openPayslip = function (id) {
+            const st = staffList.find(s => String(s.id) === String(id));
+            if (!st) return;
+            const c = payCalc(st, payMonth);
+            payslipCtx = { st, ym: payMonth, c };
+            document.getElementById('payslipBody').innerHTML = payslipHtml(st, payMonth, c);
+            document.getElementById('payslipModal').classList.remove('hidden');
+        };
+        window.copyPayslip = function () {
+            if (!payslipCtx) return;
+            copyText(payslipText(payslipCtx.st, payslipCtx.ym, payslipCtx.c));
+            showToast('📋 Đã sao chép phiếu lương.');
+        };
+        window.printPayslip = function () {
+            if (!payslipCtx) return;
+            const w = window.open('', '_blank');
+            if (!w) { showToast('Trình duyệt đang chặn cửa sổ in. Hãy cho phép pop-up rồi thử lại.', '⚠️'); return; }
+            w.document.write('<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Phiếu lương</title></head><body style="font-family:Arial,sans-serif;max-width:420px;margin:30px auto;padding:20px;border:1px solid #e2e8f0;border-radius:12px">' + payslipHtml(payslipCtx.st, payslipCtx.ym, payslipCtx.c) + '</body></html>');
+            w.document.close(); w.focus();
+            setTimeout(() => w.print(), 300);
+        };
+
+        window.exportPayrollCsv = function () {
+            const ym = payMonth;
+            const esc = v => `"${String(v).replace(/"/g, '""')}"`;
+            const head = ['Họ và tên', 'Chức vụ', 'Lương cơ bản', 'Ngày có mặt', 'Nghỉ có phép', 'Nghỉ không phép', 'Phụ cấp', 'Thưởng', 'Trừ vắng', 'Khấu trừ khác', 'Đã ứng', 'Thực lĩnh', 'Trạng thái', 'Ghi chú'];
+            const rows = payList().map(st => {
+                const c = payCalc(st, ym);
+                return [st.name, st.role, c.base, c.c, c.p, c.k, c.allowance, c.bonus, c.absCut, c.other, c.advance, c.net, c.paid ? 'Đã chi' : 'Chưa chi', c.note];
+            });
+            const csv = '\ufeff' + [head, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+            const a = document.createElement('a');
+            a.href = url; a.download = `bang-luong-${ym}.csv`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            showToast('📥 Đã xuất bảng lương tháng ' + payLabel(ym) + '.');
         };
 
         window.closeModal = function(modalId) {
